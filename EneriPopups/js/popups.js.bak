@@ -1,0 +1,251 @@
+
+
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer",
+  "esri/geometry/Extent",
+  "esri/geometry/SpatialReference",
+  "esri/PopupTemplate"
+], function (Map, MapView, FeatureLayer, Extent, SpatialReference,
+  PopupTemplate) {
+
+
+  let defaultSpatialRef = new SpatialReference({ wkid: 3857 });
+  let map_extent = setExtent();
+  let t2n = type2Name();
+
+  var ops_phase_url = "http://dad-w:6080/arcgis/rest/services/Operations_Phase/MapServer/";
+  // var tmp_url = "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/Chicago_Crime_Tracts/FeatureServer/0";
+
+  var cust_xfmrs_url = ops_phase_url + "8";
+  var equip_url = ops_phase_url + "6";
+  var pow_lines_url = ops_phase_url + "12";
+  var loads_url = ops_phase_url + "14";
+
+  var map = new Map({
+    basemap: "topo-vector",
+  });
+
+  // make it a global for chrome debugger console
+  view = new MapView({
+    container: "viewDiv",
+    map: map,
+    // center: [-87.66, 41.84],
+    // zoom: 10,
+    // center: [-96.725, 34.80453],
+    // zoom: 9,
+    extent: map_extent
+  });
+
+
+  //
+  // first do popup templates
+  //
+  var equipPopupTemplate = {
+    title: "{FID}",
+    outFields: ["*"],
+    content: setContentInfo,
+    // content: "Name: {Name}  CrimeRate: {CrimeRate}  NarcoticsC: {NarcoticsC}",
+  };
+
+  function setContentInfo(feature){
+    var attrs = feature.graphic.attributes;
+    return "Name: {Name}  CrimeRate: " + attrs.CrimeRate + "NarcoticsC: {NarcoticsC}"
+  }
+
+  // function setContentInfo(feature){
+  //   var attrs = feature.graphic.attributes;
+  //   var out = '<table>';
+  //   out += '<tr><td class="infoPaneLabelCell">Type</td><td>' + attrs.otype + '</td></tr>';
+  //   out += '<tr><td class="infoPaneLabelCell">ID</td><td>' + attrs.secname + '</td></tr>';
+  //   out += '<tr><td class="infoPaneLabelCell">Phasecode</td><td>' + attrs.phasecode + '</td></tr>';
+  //   out += '<table>';
+
+  //   return out;
+  // }
+
+  function equipChange(f) {
+    var attrs = f.graphic.attributes;
+    // var out = '<table>';
+    // out += '<tr><td class="infoPaneLabelCell">Type</td><td>' + type2Name(attrs.otype) + '</td></tr>';
+    // out += '<tr><td class="infoPaneLabelCell">PhaseCode</td><td>' + attrs.phasecode + '</td></tr>';
+    // out += infoWindowRow('ID', attrs.secname, 'focusOn');
+    // out += infoWindowRow('Parent', attrs.parentsec, 'focusOn');
+    // out += infoWindowRow('Feeder', attrs.circuit, 'focusOnBay', 'subBayInfoPane');
+    // out += infoWindowRow('Equip. Ref.', attrs.equipref, (true && f.layer !== 'Customer Transformers') ? 'updateEquipmentModel' : null);
+    // //out += '<tr><td class="infoPaneLabelCell">Equip. Ref.</td><td>' + attrs.equipref"] + '</td></tr>';
+    // out += '<tr><td class="infoPaneLabelCell">Phase</td><td>' + attrs.phasecode  + '</td></tr>'; //domainDecoder(attrs.phase, 'phase', null)
+    // out += '<tr><td class="infoPaneLabelCell">Status</td><td>' + attrs.status  + '</td></tr>';
+
+    // out += '</table>';
+
+    var tbl = document.createElement('table');
+    tbl.className = "attrs";
+
+    tmp(tbl, 'Type', type2Name(attrs.otype), rowClass=null, cellClass='infoPaneLableCell'); 
+    tmp(tbl, 'PhaseCode', attrs.phasecode, rowClass=null, cellClass='infoPaneLableCell'); 
+
+    tmp(tbl, 'ID', attrs.secname, rowClass=null, cellClass='infoPaneLableCell',
+        linkify=true, func='focusOn'); 
+    tmp(tbl, 'Parent', attrs.parentsec, rowClass=null, cellClass='infoPaneLableCell',
+        linkify=true, func='focusOn'); 
+
+    // var row = addTblRow(tbl, 'Type', attrs.otype);
+    // tmp(tbl, 'ID', attrs.secname);
+
+    // return tbl;
+
+    return "{objectid}   {secname}  {phasecode}   {equipref}"
+  };
+
+  // var consumerPopupTemplate = {
+  //   title: "Consumer",
+  //   showAttachments: false
+  // }
+
+
+  function tmp(tbl, lbl, value, rowClass=null, cellClass='infoPaneLableCell', 
+           linkify=false, func=null, funcParam=null) {
+    var row = tbl.insertRow();
+    if (rowClass) row.className = rowClass;
+
+    var tdLbl = row.insertCell();
+    if (cellClass) tdLbl.className = cellClass;
+    tdLbl.innerHTML = lbl;
+
+    var tdValue = row.insertCell();
+    if (linkify) {
+      anch = document.createElement('a');
+      afunc = funcParam ? `${func}(${funcParam})` : `${func}()`;
+      anch.setAttribute('onclick', afunc);
+      anch.innerHTML = value;
+      tdValue.appendChild(anch);
+    }
+    else {
+      tdValue.innerHTML = value;
+    }
+
+    return {lbl: tdLbl, val: tdValue};
+  }
+
+  var cust_xfmrs = new FeatureLayer({
+    url: cust_xfmrs_url,
+    outFields: ['*']
+  });
+  equip6 = new FeatureLayer({
+    url: ops_phase_url + '6',
+    outFields: ['*'],
+    popupTemplate: equipPopupTemplate
+  });
+  equip9 = new FeatureLayer({
+    url: ops_phase_url + '9',
+    outFields: ['*']
+  });
+  var pow_lines = new FeatureLayer({
+    url: pow_lines_url,
+    outFields: ['*']
+  });
+  var loads = new FeatureLayer({
+    url: loads_url,
+    outFields: ['*']
+  });
+
+  var tmpp = new FeatureLayer({
+    url: tmp_url,
+    outFields: ["*"],
+    popupTemplate: equipPopupTemplate
+  });
+
+  // turnOnVisibility(equip6);
+  // turnOnVisibility(equip9);
+  // turnOnVisibility(cust_xfmrs);
+  // turnOnVisibility(pow_lines);
+  // turnOnVisibility(loads);
+  // map.add(equip6);
+  // map.add(equip9);
+  // map.add(cust_xfmrs);
+  // map.add(pow_lines);
+  // map.add(loads);
+  map.add(tmpp);
+
+
+  function turnOnVisibility(fl) {
+    fl.maxScale = 0;
+    fl.minScale = 0;
+  }
+
+  // view.when(() => {
+  //   equip6.popupTemplate = equipPopupTemplate;
+  //   equip9.popupTemplate = equipPopupTemplate;
+  // });;
+
+  function formatString(val) { return val ? val : '' }
+
+  function setExtent() {
+    let extent = new Extent({
+      xmin: -10919311.41681004,
+      ymin: 3612806.5850415034,
+      xmax: -10625793.228194851,
+      ymax: 3748100.125106317,
+      "spatialReference": defaultSpatialRef
+    });
+    return extent;
+  }
+
+  function infoWindowRow(name, val, func, cls, fpar) {
+    //func = func || null;
+    cls = cls || null;
+    fpar = fpar || null;
+    var v = Array.isArray(val) ? val[0] : val;
+    return '<tr' + (cls ? (' class="' + cls + '"') : '') + '><td class="infoPaneLabelCell">' +
+      linkFunc(name, func, val, fpar) + '</td><td>' + linkFunc(v, func, val, fpar) + '</td></tr>';
+  }
+
+  function linkFunc(v, func, val, fpar) {
+    return (func && val) ? ('<a onclick="' + func + '(\'' + val + (fpar ? ('\', \'' + fpar + '\'') : '\'') + ');">' + v + '</a>') : v;
+  }
+
+  function type2Name(t) {
+    var t2n = {
+      "residential": "Residential",
+      "smallconsumer": "Small Consumer",
+      "largeconsumer": "Large Consumer",
+      "load": "Load",
+      "source": "Bay",
+      "transformer": "Transformer",
+      "capacitor": "Capacitor",
+      "regulator": "Regulator",
+      "switch": "Switch",
+      "protection": "Protection",
+      "wire": "Conductor",
+      "oh": "Overhead Conductor",
+      "ug": "Underground Conductor",
+      "breaker": "Breaker",
+      "fuse": "Fuse",
+      "recloser": "Recloser",
+      "sectionalizer": "Sectionalizer",
+      "pole": "Pole",
+      "motor": "Motor",
+      "generator": "Generator",
+    }
+    return t2n[t];
+  }
+
+
+  function focusOn(secname, refocus = 'move') {
+    var p = null;
+    if (secname) {
+      p = selectByAttr(['secname'], secname, ['Power Lines', 'Equipment', 'Loads', 'Equipment OFF', 'Loads OFF', 'Customer Transformers']).then(function (qr) { focusToSelection(qr, refocus); });
+      /*
+      if(refocus=='full'){
+          p= p.then(function(qr){qr && esri.graphicsExtent(qr) && gs.map.setExtent(esri.graphicsExtent(qr).expand(gs.conf.view.extFactor));});
+      }else if(refocus=='move'){
+          p= p.then(function(qr){qr && esri.graphicsExtent(qr) && gs.map.centerAt(esri.graphicsExtent(qr).getCenter());});
+      }
+      */
+    }
+    return Promise.resolve(p);
+  }
+
+});
